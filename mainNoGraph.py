@@ -1,9 +1,9 @@
-import random, os, time
+import random, os
 from timeit import default_timer as timer
 
-ELAPSETIME = 3600000*2 # ELAPSETIME - how many milliseconds to simulate
+ELAPSETIME = 3600000 # ELAPSETIME - how many milliseconds to simulate
 # --- bee stats ---
-GIFTED = True  # GIFTED - controls if it should take into concideration about inspire
+GIFTED = False  # GIFTED - controls if it should take into concideration about inspire
 BEE = 'ninja'
 # --- mutations ---
 BMS = 0     # BMS - Bee Movespeed - affects the bee's movement
@@ -167,8 +167,8 @@ def simulation(beeName):
     # getting data
     bee = BEES[beeName]
     speed = adjSpeed(bee['speed'], BMS+ADDBMS, PERCBMS, BEELVL)
-    gather = bee['gather']
-    tlist = bee['token'] + bee['gifted'] + BTOKEN
+    gather = bee['gather']*1000
+    tlist = bee['token'] + (bee['gifted'] if GIFTED else []) + BTOKEN
     tokens = {} # used as a general value for reset timer
     timers = {} # used as the simulation.
     for token in tlist:
@@ -222,4 +222,4 @@ def simulation(beeName):
             print(f" {token}: {timers[token]['total']}")
 
 os.system('cls')
-simulation('honey')
+simulation(BEE)
