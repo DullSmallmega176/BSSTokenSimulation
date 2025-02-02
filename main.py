@@ -53,7 +53,8 @@ class BeeSimulate:
         for i in range(len(self.tlist)):
             tokenTGC = round(self.adjCooldwn(TOKENLIST[self.tlist[i]]['TGC'], PBAR, BAR, BBAR)*1000)
             tokenTAC = round(self.adjCooldwn(TOKENLIST[self.tlist[i]]['TAC'], PBAR, BAR, BBAR)*1000)
-            self.tokens[i] = {'name':self.tlist[i],'TGC':tokenTGC,'TAC':tokenTAC,'TSR':TOKENLIST[self.tlist[i]]['TSR']}
+            tokenTSR = self.adjChance(TOKENLIST[self.tlist[i]]['TSR'], PBAR, BAR, BBAR)
+            self.tokens[i] = {'name':self.tlist[i],'TGC':tokenTGC,'TAC':tokenTAC,'TSR':tokenTSR}
             self.timers[i] = {'name':self.tlist[i],'TGC':tokenTGC,'TAC':tokenTAC,'total':0}
         self.timers['gather'] = 0
         self.timers['movement'] = self.movementEffect(self.speed)
@@ -67,6 +68,10 @@ class BeeSimulate:
         return base/(((pbar+bbar)/100)*(1+(bar/100)))
     def adjSpeed(self, base, addbms, percbms, level):
         return (base+addbms)*(1+(percbms/100))*(1+((level-1)*0.03))
+    # if true, 1% is added to chance per additional BAR
+    def adjChance(self, base, pbar, bar, bbar):
+        #return base+(base*((pbar-100)+bar+bbar))
+        return base
     def spinEffect(self, tsr):
         if random.random() <= tsr:
             return 2
@@ -86,6 +91,7 @@ class BeeSimulate:
             self.timers['movement'] = self.movementEffect(self.speed)
     def tokenAttempt(self):
         if self.timers['gather'] == 0 and self.timers['movement'] == 0:
+            success = False
             for token in self.timers:
                 if token in ['gather', 'movement']:
                     continue
@@ -95,8 +101,9 @@ class BeeSimulate:
                 self.timers[token]['TAC'] = self.tokens[token]['TAC']
                 self.timers[token]['total'] += 1
                 self.totalTokens += 1
+                success = True # token spawn animation
                 break
-            self.timers['gather'] = self.gatherTime
+            self.timers['gather'] = self.gatherTime + (1000 if success else 0)
     def updateGather(self):
         if self.timers['gather'] > 0:
             self.timers['gather'] -= 1
