@@ -70,8 +70,7 @@ class BeeSimulate:
         return (base+addbms)*(1+(percbms/100))*(1+((level-1)*0.03))
     # if true, 1% is added to chance per additional BAR
     def adjChance(self, base, pbar, bar, bbar):
-        #return base+(base*((pbar-100)+bar+bbar))
-        return base
+        return base*(1+(((pbar-100)+bar+bbar)*0.01))
     def spinEffect(self, tsr):
         if random.random() <= tsr:
             return 2
