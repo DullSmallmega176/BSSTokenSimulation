@@ -50,11 +50,11 @@ class BeeSimulate:
         self.tlist = self.bee['token'] + (self.bee['gifted'] if GIFTED else []) + BTOKEN
         self.tokens = {}
         self.timers = {}
-        for token in self.tlist:
-            tokenTGC = round(self.adjCooldwn(TOKENLIST[token]['TGC'], PBAR, BAR, BBAR)*1000)
-            tokenTAC = round(self.adjCooldwn(TOKENLIST[token]['TAC'], PBAR, BAR, BBAR)*1000)
-            self.tokens[token] = {'TGC':tokenTGC,'TAC':tokenTAC,'TSR':TOKENLIST[token]['TSR']}
-            self.timers[token] = {'TGC':tokenTGC,'TAC':tokenTAC,'total':0}
+        for i in range(len(self.tlist)):
+            tokenTGC = round(self.adjCooldwn(TOKENLIST[self.tlist[i]]['TGC'], PBAR, BAR, BBAR)*1000)
+            tokenTAC = round(self.adjCooldwn(TOKENLIST[self.tlist[i]]['TAC'], PBAR, BAR, BBAR)*1000)
+            self.tokens[i] = {'name':self.tlist[i],'TGC':tokenTGC,'TAC':tokenTAC,'TSR':TOKENLIST[self.tlist[i]]['TSR']}
+            self.timers[i] = {'name':self.tlist[i],'TGC':tokenTGC,'TAC':tokenTAC,'total':0}
         self.timers['gather'] = 0
         self.timers['movement'] = self.movementEffect(self.speed)
         self.currentTime = 0
@@ -62,7 +62,7 @@ class BeeSimulate:
         self.timeSeries = []
         self.movementSeries = []
         self.gatherSeries = []
-        self.tokenActivation = {token: [] for token in self.tlist}
+        self.tokenActivation = {token: [] for token in range(len(self.tlist))}
     def adjCooldwn(self, base, pbar, bar, bbar):
         return base/(((pbar+bbar)/100)*(1+(bar/100)))
     def adjSpeed(self, base, addbms, percbms, level):
@@ -109,7 +109,7 @@ class BeeSimulate:
             self.timeSeries.append(self.currentTime)
             self.movementSeries.append(self.timers['movement'])
             self.gatherSeries.append(self.timers['gather'])
-            for token in self.tlist:
+            for token in range(len(self.tlist)):
                 self.tokenActivation[token].append(self.timers[token]['TGC'])
     def plotGraph(self):
         if not ENABLEGRAPH or plt is None:
@@ -123,8 +123,8 @@ class BeeSimulate:
         plt.title("bee/token simulation")
         plt.legend()
         plt.subplot(2,1,1)
-        for token in self.tlist:
-            plt.plot(self.timeSeries, self.tokenActivation[token], label=f"token: {token}")
+        for token in range(len(self.tlist)):
+            plt.plot(self.timeSeries, self.tokenActivation[token], label=f"token: {self.tlist[token]}")
         plt.xlabel("time - ms")
         plt.ylabel("cooldown time")
         plt.title("token cooldown over time")
@@ -140,13 +140,14 @@ class BeeSimulate:
         minutes = ELAPSETIME/60000
         tokenAverage = self.totalTokens/minutes
         print(f'it took {end:.2f} seconds to simulate {minutes} minutes\n')
+        print("-- bee stats --")
         print(f"{self.beeName}: BMS: {BMS}, BAR: {BAR}")
         print(f"total tokens produced: {self.totalTokens}")
         print(f"average tokens per minute: {tokenAverage:.2f}")
-        print("total tokens for each token")
+        print("-- each token breakdown --")
         for token in self.timers:
             if token not in ['gather', 'movement']:
-                print(f" {token}: {self.timers[token]['total']} - Avg: {(self.timers[token]['total']/minutes):.2f} per min.")
+                print(f"-  {self.timers[token]['name']}: {self.timers[token]['total']} - Avg: {(self.timers[token]['total']/minutes):.2f} per min.")
         self.plotGraph()
 if __name__ == "__main__":
     os.system('cls')
