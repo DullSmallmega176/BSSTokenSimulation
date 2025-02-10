@@ -2,7 +2,8 @@
 Just a simple script that helps with finding out what mutation works best for token production. - WIP
 
 You might need to install matplotlib for this script to work "this just plots the gathered information.
-there will be a no-graph one since it HOGS memory.
+there are toggles for this in the script itself.
+WARNING - it HOGS memory.
 
 https://matplotlib.org/
 
