@@ -2,6 +2,9 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <random>
+#include <cmath>
+#include <chrono>
 
 struct Bee {
 	double speed;
@@ -10,17 +13,71 @@ struct Bee {
 	std::vector<std::string> gifted;
 };
 
-struct Token {
+struct TokenList {
 	double tokengeneralcooldown;
 	double tokenattemptcooldown;
 	double tokensuccessrate;
 };
-/*
+
+struct Token {
+	std::string name;
+	int tokengeneralcooldown;
+	int tokenattemptcooldown;
+	double tokensuccessrate;
+};
+
+struct Timer {
+	std::string name;
+	int tokengeneralcooldown;
+	int tokenattemptcooldown;
+	int total;
+};
+
 class Simulation {
-public:
+private:
+	std::string beeName;
+	Bee bee;
+	double speed;
+	int gatherTime;
+	std::vector<std::string> tlist;
+	std::unordered_map<int, Token> tokens;
+	std::unordered_map<int, Timer> timers;
+	int currentTime;
+	int totalTokens;
+	int movementTime;
+
+	static double adjustCooldown(double base, double playerbeeabilityrate, double beeabilityrate, double beequipbeeabilityrate) {
+		return base / (((playerbeeabilityrate + beequipbeeabilityrate) / 100) * (1 + (beeabilityrate / 100)));
+	}
+
+	static double adjustSpeed(double base, double addbeemovespeed, double percentagebeemovespeed, int level) {
+		return (base + addbeemovespeed) * (1 + (percentagebeemovespeed / 100)) * (1 + ((level - 1) * 0.03));
+	}
+
+	static double adjustChance(double base, double playerbeeabilityrate, double beeabilityrate, double beequipbeeabilityrate) {
+		return base * (1 + (((playerbeeabilityrate - 100) + beeabilityrate + beequipbeeabilityrate) * 0.01));
+	}
+
+	static int movementEffect(double walkspeed) {
+		int studs = (rand() % 20 + 1) * 4;
+		return static_cast<int>(round((studs / walkspeed) * 1000));
+	}
+
+	void reduceCooldown() {
+		for (auto& token : timers) {
+			token.second.tokengeneralcooldown = std::max(0, token.second.tokengeneralcooldown - 1);
+			token.second.tokenattemptcooldown = std::max(0, token.second.tokenattemptcooldown - 1);
+		}
+
+		if (movementTime > 0) {
+			movementTime--;
+		} else if (gatherTime == 0) {
+			movementTime = movementEffect(speed);
+		}
+	}
 
 };
-*/
+
 int main()
 {
 	int MILLISECONDS = 3600000;
@@ -32,7 +89,7 @@ int main()
 	int PERCENTAGEBEEMOVESPEED = 11;
 	int ADDBEEMOVESPEED = 0;
 	int BEELEVEL = 21;
-	int BEEQUIPBAR = 0;
+	int BEEQUIPBEEABILITYRATE = 0;
 	std::unordered_map<std::string, Bee> BEES = {
 		{"basic", {14.0, 4.0, {}, {"inspire"}}},
 		{"bomber", {15.4, 4.0, {"bomb"}, {"inspire"}}},
@@ -80,7 +137,7 @@ int main()
 		{"tabby", {16.1, 4.0, {"scratch", "tabbylove"}, {"inspire"}}},
 		{"vicious", {17.5, 4.0, {"bomb"}, {"inspire"}}},
 		{"windy", {19.6, 3.0, {"boost", "raincloud", "tornado"}, {"inspire"}}} };
-	std::unordered_map<std::string, Token> TOKENLIST = {
+	std::unordered_map<std::string, TokenList> TOKENLIST = {
 		{"haste", {4.5, 4.5, 1.0/3.0}},
 		{"focus", {4.5, 4.5, 1.0/3.0}},
 		{"rage", {50.0, 15.0, 1.0}}, // battle only
