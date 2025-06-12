@@ -8,10 +8,10 @@ https://matplotlib.org/stable/install/index.html
 'use the pip install command on console/terminal.
 '''
 # --- bee stats ---
-BEE = 'ninja'
+BEE = 'basic'
 GIFTED = True  # GIFTED - controls if it should take into concideration about inspire
 # --- mutations ---
-BMS = 5     # BMS - Bee Movespeed - affects the bee's movement
+BMS = 0     # BMS - Bee Movespeed - affects the bee's movement
 BAR = 0     # BAR - Bee Ability Rate - affects the bee's TGC and TAC
 # --- player/bee booster stats --- for better accuracy so we don't have to spend quads on testing.
 PBAR = 131  # PBAR - Player Bee Ability Rate - your BAR in the system page
@@ -64,11 +64,14 @@ class BeeSimulate:
         self.movementSeries = []
         self.gatherSeries = []
         self.tokenActivation = {token: [] for token in range(len(self.tlist))}
+        self.frogActive = False
+        self.frogDuration = 0
+        self.frogTokenIndex = next((i for i, t in enumerate(self.tlist) if t == 'summonFrog'), None)
+        self.frogCount = 0
     def adjCooldwn(self, base, pbar, bar, bbar):
         return base/(((pbar+bbar)/100)*(1+(bar/100)))
     def adjSpeed(self, base, addbms, percbms, level):
         return (base+addbms)*(1+(percbms/100))*(1+((level-1)*0.03))
-    # if true, 1% is added to chance per additional BAR
     def adjChance(self, base, pbar, bar, bbar):
         return base*(1+(((pbar-100)+bar+bbar)*0.01))
     def spinEffect(self, tsr):
@@ -80,43 +83,62 @@ class BeeSimulate:
         return round((studs/walkspeed)*1000)
     def reduceCooldown(self):
         for token in self.timers:
-            if token in ['gather', 'movement']:
-                continue
-            self.timers[token]['TGC'] = max(0, self.timers[token]['TGC']-1)
-            self.timers[token]['TAC'] = max(0, self.timers[token]['TAC']-1)
+            if token not in ['gather', 'movement']:
+                if self.timers[token]['TGC'] > 0:
+                    self.timers[token]['TGC'] -= 1
+                if self.timers[token]['TAC'] > 0:
+                    self.timers[token]['TAC'] -= 1
         if self.timers['movement'] > 0:
             self.timers['movement'] -= 1
-        elif self.timers['gather'] == 0:
+        elif not self.timers['gather']:
             self.timers['movement'] = self.movementEffect(self.speed)
     def tokenAttempt(self):
         if self.timers['gather'] == 0 and self.timers['movement'] == 0:
-            success = False
             for token in self.timers:
                 if token in ['gather', 'movement']:
                     continue
-                if self.timers[token]['TGC'] > 0 or self.timers[token]['TAC'] > 0 or not random.random() < self.tokens[token]['TSR']:
-                        continue
-                self.timers[token]['TGC'] = self.tokens[token]['TGC']
-                self.timers[token]['TAC'] = self.tokens[token]['TAC']
-                self.timers[token]['total'] += 1
-                self.totalTokens += 1
-                success = True # token spawn animation
-                break
-            self.timers['gather'] = self.gatherTime + (1000 if success else 0)
+                tokenData = self.tokens[token]
+                if self.timers[token]['TGC'] == 0 and self.timers[token]['TAC'] == 0 and random.random() < tokenData['TSR']:
+                    self.timers[token]['TGC'] = tokenData['TGC']
+                    self.timers[token]['TAC'] = tokenData['TAC']
+                    self.timers[token]['total'] += 1
+                    self.totalTokens += 1
+                    self.timers['gather'] = self.gatherTime + 1000
+                    if self.tlist[token] == 'summonFrog' and not self.frogActive:
+                        self.frogActive = True
+                        self.frogDuration = 20000 + (BEELVL-1)*2000
+                    return
+            self.timers['gather'] = self.gatherTime
     def updateGather(self):
-        if self.timers['gather'] > 0:
+        if self.timers['gather']:
             self.timers['gather'] -= 1
     def step(self):
-        self.reduceCooldown()
-        self.tokenAttempt()
-        self.updateGather()
-        self.currentTime += 1
+        minSkip = min([self.timers['movement'], self.timers['gather']]+[self.timers[token]['TGC'] for token in self.timers if token not in ['gather', 'movement']]+[self.timers[token]['TAC'] for token in self.timers if token not in ['gather', 'movement']])
+        if minSkip > 1:
+            self.currentTime += minSkip
+            for token in self.timers:
+                if token in ['gather', 'movement']:
+                    self.timers[token] = max(0, self.timers[token]-minSkip)
+                else:
+                    self.timers[token]['TGC'] = max(0, self.timers[token]['TGC']-minSkip)
+                    self.timers[token]['TAC'] = max(0, self.timers[token]['TAC']-minSkip)
+        else:
+            self.reduceCooldown()
+            if self.timers['gather'] == 0 and self.timers['movement'] == 0:
+                self.tokenAttempt()
+            self.updateGather()
+            self.currentTime += 1
         if ENABLEGRAPH and self.currentTime % LOGDATAINTERVAL == 0:
             self.timeSeries.append(self.currentTime)
             self.movementSeries.append(self.timers['movement'])
             self.gatherSeries.append(self.timers['gather'])
             for token in range(len(self.tlist)):
                 self.tokenActivation[token].append(self.timers[token]['TGC'])
+        if self.frogActive:
+            self.frogDuration -= minSkip if minSkip > 1 else 1
+            if self.frogDuration <= 0:
+                self.frogActive = False
+                self.frogCount += 1
     def plotGraph(self):
         if not ENABLEGRAPH or plt is None:
             return
@@ -138,24 +160,39 @@ class BeeSimulate:
         plt.tight_layout()
         plt.show()
     def run(self):
-        print("script has started")
         start = timer()
         while self.currentTime < ELAPSETIME:
             self.step()
         end = timer()-start
         minutes = ELAPSETIME/60000
         tokenAverage = self.totalTokens/minutes
-        print(f'it took {end:.2f} seconds to simulate {minutes} minutes\n')
+        print(f'it took {end:.2f} seconds to simulate {minutes} minutes')
         print("-- bee stats --")
-        print(f"{self.beeName}: BMS: {BMS}, BAR: {BAR}")
-        print(f"total tokens produced: {self.totalTokens}")
-        print(f"average tokens per minute: {tokenAverage:.2f}")
+        print(f"{self.beeName} | mutations - Movespeed: {BMS}, Ability Rate: {BAR}")
+        print(f"{'Token':<20} {'TGC (s)':>10} {'TAC (s)':>10} {'TSR (%)':>10}")
+        print("-" * 50)
+
+        for i, token in self.tokens.items():
+            name = token['name']
+            tgc_s = token['TGC'] / 1000
+            tac_s = token['TAC'] / 1000
+            tsr_percent = token['TSR'] * 100
+            print(f"{name:<20} {tgc_s:>10.2f} {tac_s:>10.2f} {tsr_percent:>10.2f}")
+        print("-" * 50)
+        print(f"total tokens produced: {self.totalTokens} ({tokenAverage:.2f} per minute)")
         print("-- each token breakdown --")
         for token in self.timers:
             if token not in ['gather', 'movement']:
-                print(f"-  {self.timers[token]['name']}: {self.timers[token]['total']} - Avg: {(self.timers[token]['total']/minutes):.2f} per min.")
+                seconds = 60 / (self.timers[token]['total']/minutes) if self.timers[token]['total'] else 0
+                print(f"-  {self.timers[token]['name']}: {self.timers[token]['total']} - Avg: {(self.timers[token]['total']/minutes):.2f} per min. ({seconds:.2f} seconds)")
+        if self.frogTokenIndex is not None:
+            minutes = ELAPSETIME/60000
+            frogAvg = self.frogCount/minutes
+            frogSeconds = 60/frogAvg if frogAvg else 0
+            print(f"- frogs: {self.frogCount} - Avg: {frogAvg:.2f} per min. ({frogSeconds:.2f} seconds)")
         self.plotGraph()
 if __name__ == "__main__":
     os.system('cls')
+    print("script is running")
     simulation = BeeSimulate(BEE)
     simulation.run()
