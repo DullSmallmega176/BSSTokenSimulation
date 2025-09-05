@@ -154,7 +154,7 @@ class BeeSimulate:
         if beeName not in BEES:
             raise ValueError("invalid bee")
         self.bee = BEES[beeName]
-        self.speed = self.adjSpeed(self.bee['speed'], BEE_STATS['BAR_MUTATION']+BEE_STATS['BEEQUIP_BMS'], PLAYER_STATS['BMS_PERCENTAGE'], BEE_STATS['LEVEL'])
+        self.speed = self.adjSpeed(self.bee['speed'], BEE_STATS['BMS_MUTATION']+BEE_STATS['BEEQUIP_BMS'], PLAYER_STATS['BMS_PERCENTAGE'], BEE_STATS['LEVEL'])
         self.gatherTime = self.bee['gather']*1000
         self.tlist = self.bee['token'] + (self.bee['gifted'] if BEE_STATS['GIFTED'] else []) + BEE_STATS['BEEQUIP_TOKENS']
         self.tokens = {}
@@ -222,32 +222,35 @@ class BeeSimulate:
         if self.timers['gather']:
             self.timers['gather'] -= 1
     def step(self):
-        minSkip = min([self.timers['movement'], self.timers['gather']]+[self.timers[token]['TGC'] for token in self.timers if token not in ['gather', 'movement']]+[self.timers[token]['TAC'] for token in self.timers if token not in ['gather', 'movement']])
-        if minSkip > 1:
-            self.currentTime += minSkip
-            for token in self.timers:
-                if token in ['gather', 'movement']:
-                    self.timers[token] = max(0, self.timers[token]-minSkip)
-                else:
-                    self.timers[token]['TGC'] = max(0, self.timers[token]['TGC']-minSkip)
-                    self.timers[token]['TAC'] = max(0, self.timers[token]['TAC']-minSkip)
+        nextEvent = min([t for t in [self.timers['movement'], self.timers['gather']] if t > 0] + [cd for token in self.timers if token not in ['gather','movement'] for cd in (self.timers[token]['TGC'], self.timers[token]['TAC']) if cd > 0], default=1)
+        prevMovement = self.timers['movement']
+
+        self.currentTime += nextEvent
+        for token in self.timers:
+            if token in ['gather', 'movement']:
+                self.timers[token] = max(0, self.timers[token] - nextEvent)
+            else:
+                self.timers[token]['TGC'] = max(0, self.timers[token]['TGC'] - nextEvent)
+                self.timers[token]['TAC'] = max(0, self.timers[token]['TAC'] - nextEvent)
+
+        if prevMovement > 0 and self.timers['gather'] == 0 and self.timers['movement'] == 0:
+            self.tokenAttempt()
         else:
-            self.reduceCooldown()
-            if self.timers['gather'] == 0 and self.timers['movement'] == 0:
-                self.tokenAttempt()
-            self.updateGather()
-            self.currentTime += 1
+            if self.timers['movement'] == 0 and self.timers['gather'] == 0:
+                self.timers['movement'] = self.movementEffect(self.speed)
+
+        if self.frogActive:
+            self.frogDuration -= nextEvent
+            if self.frogDuration <= 0:
+                self.frogActive = False
+                self.frogCount += 1
+
         if SIM_CONFIG['ENABLE_GRAPH'] and self.currentTime % SIM_CONFIG['LOG_INTERVAL'] == 0:
             self.timeSeries.append(self.currentTime)
             self.movementSeries.append(self.timers['movement'])
             self.gatherSeries.append(self.timers['gather'])
             for token in range(len(self.tlist)):
                 self.tokenActivation[token].append(self.timers[token]['TGC'])
-        if self.frogActive:
-            self.frogDuration -= minSkip if minSkip > 1 else 1
-            if self.frogDuration <= 0:
-                self.frogActive = False
-                self.frogCount += 1
     def plotGraph(self):
         if not SIM_CONFIG['ENABLE_GRAPH'] or plt is None:
             return
