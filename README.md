@@ -1,11 +1,11 @@
 # BSSTokenSimulation
 Just a simple script that helps with finding out what mutation works best for token production. - WIP
 
-You might need to install matplotlib for this script to work "this just plots the gathered information.
+matplotlib is optional, if not installed, it'll default to be turned off. this just plots the information gathered in the simulation.
 there are toggles for this in the script itself.
 WARNING - it HOGS memory.
 
 https://matplotlib.org/
 
-there are comments to at least help but you'll need to know the script well to actually configure it.
-this is just a personal project so don't expect anything more from it.
+You'll need to configure it to your own stats if you'd like, there is math required to find out some values, but a bunch of them are within the game itself
+^^^ the variable names are self explanatory
